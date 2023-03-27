@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 from flask import request, jsonify, make_response
 from functools import wraps
 from descope import DescopeClient
-from http.cookies import SimpleCookie
+import requests
 
 descope_client = DescopeClient(project_id='P2MzaPz4LUiqdwSPOYJ170UHYcE5')
 
@@ -27,24 +27,18 @@ class User(db.Model, UserMixin):
 def login_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
-        cookie = SimpleCookie()
-        # ensure the jwt-token is passed with the headers
-        if 'Cookie' in request.headers:
-            cookie_response = request.headers['Cookie']
-            cookie.load(cookie_response)
-            cookies = {k: v.value for k, v in cookie.items()}
-            print(cookies)
-        if not cookies: 
-            return make_response(jsonify({"message": "A valid cookie is missing!"}), 401)
         try:
-            jwt_response = descope_client.validate_session(session_token=cookies['session'])
+            session = requests.Session()
+            response = session.get(request.url_root)
+            print(session.cookies.get_dict())
+
+            jwt_response = descope_client.validate_session(session_token=session.cookies['session'])
             print ("Successfully validated user session:")
             print (jwt_response)
-            
+            return f({"session_active": True, "jwt": jwt_response, "descope_login": True}, *args, **kwargs)
         except Exception as error:
             print ("Could not validate user session. Error:")
             print (error)
-            return make_response(jsonify({"message": "Invalid token!"}), 401)
-         # Return the user information attached to the token
-        return f(current_user, *args, **kwargs)
+        
+        return f({"session_active": False, "jwt": 0}, *args, **kwargs)
     return decorator

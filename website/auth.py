@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from . import db
 from flask_login import login_user, logout_user, current_user
 from descope import DescopeClient, AuthException
+import requests
 
 auth = Blueprint('auth', __name__)
 descope_client = DescopeClient(project_id="P2MzaPz4LUiqdwSPOYJ170UHYcE5")
@@ -74,16 +75,18 @@ def token_exchange():
 
 @auth.route('/logout', methods=['GET'])
 @login_required
-def logout():
-    if request.args.get("refresh-token"):
+def logout(dec_json):
+    if dec_json['session_active'] == True:
         try:
-            resp = descope_client.logout(request.args.get("refresh-token"))
+            resp = descope_client.logout(dec_json['jwt'])
             print("Successfully logged user out of current session.")
             print(resp)
         except AuthException as error:
             print("Failed to log user out of current session.")
             print("Status Code: " + str(error.status_code))
             print("Error: " + str(error.error_message))
+            flash("Could not logout successfully.", category='error')
+            return redirect(url_for('views.home'))
     else:
         logout_user()
 
@@ -111,19 +114,17 @@ def register():
         elif len(password1) < 7:
             flash('Password must be at least 7 characters.', category='error')
         else:
-            new_user_json = {
-                "name": firstName,
-                "email": email,
-            }
-            jwt_response = descope_client.password.sign_up(login_id=email, password=password1, user=new_user_json)
-            print(jwt_response)
+            # Descope doesn't support password auth anymore it looks like
+            # new_user_json = {
+            #     "name": firstName,
+            #     "email": email,
+            # }
+            # jwt_response = descope_client.password.sign_up(login_id=email, password=password1, user=new_user_json)
+            # print(jwt_response)
             new_user = User(email=email, first_name=firstName, password=generate_password_hash(password1, method='sha256'))
-            createNewUser(new_user)
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Account created!', category='success')
+            return redirect(url_for('views.home'))
 
     return render_template("register.html", user=current_user)
-
-def createNewUser(user):
-    db.session.add(user)
-    db.session.commit()
-    flash('Account created!', category='success')
-    return redirect(url_for('views.home'))
