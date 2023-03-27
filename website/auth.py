@@ -3,8 +3,11 @@ from .models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db
 from flask_login import login_user, login_required, logout_user, current_user
+from descope import DescopeClient, DeliveryMethod, AuthException
+import requests
 
 auth = Blueprint('auth', __name__)
+descope_client = DescopeClient(project_id="P2MzaPz4LUiqdwSPOYJ170UHYcE5")
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
@@ -25,10 +28,56 @@ def login():
 
     return render_template("login.html", user=current_user)
 
-@auth.route('/logout')
+@auth.route('/login/google', methods=['GET'])
+def google_login():
+    provider = "google"
+    redirect_url = "http://127.0.0.1:5000/login/token_exchange"
+        
+    try:
+        resp = descope_client.oauth.start(provider=provider, return_url=redirect_url)
+        print ("Successfully started Oauth flow")
+        if not resp:
+            flash('There was an issue with the Google OAuth provider redirect.', category='error')
+        else:
+            return redirect(resp['url'])
+    except AuthException as error:
+        print ("Failed to start Oauth flow")
+        print ("Status Code: " + str(error.status_code))
+        print ("Error: " + str(error.error_message))
+
+    return render_template("login.html", user=current_user)
+
+@auth.route('/login/token_exchange', methods=['GET'])
+def token_exchange():
+    code = request.args.get('code')
+    try:
+        resp = descope_client.oauth.exchange_token(code=code)
+        print ("Successfully Finished Oauth flow")
+        
+        email = resp['user']['email']
+        user = User.query.filter_by(email=email).first()
+        if user:
+            print(user.email)
+            login_user(user, remember=True)
+            return redirect(url_for('views.home'))
+    except AuthException as error:
+        print ("Failed to finish Oauth flow")
+        print ("Status Code: " + str(error.status_code))
+        print ("Error: " + str(error.error_message))
+
+    return redirect(url_for('auth.login'))
+
+@auth.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    logout_user()
+    
+    try:
+        resp = descope_client.logout(refresh_token)
+        print ("Successfully logged user out of current session.")
+    except AuthException as error:
+        print ("Failed to log user out of current session.")
+        print ("Status Code: " + str(error.status_code))
+        print ("Error: " + str(error.error_message))
     return redirect(url_for('auth.login'))
 
 @auth.route('/register', methods=['GET', 'POST'])

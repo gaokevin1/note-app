@@ -11,6 +11,16 @@
     <label for="password">Password</label>
     <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" />
   </div>
+  <div class="row">
+    <div class="col-md-3">
+      <a class="btn btn-outline-dark" href="{{ url_for('auth.google_login') }}" role="button"
+        style="text-transform:none">
+        <img width="20px" style="margin-bottom:3px; margin-right:5px" alt="Google sign-in"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png" />
+        Login with Google
+      </a>
+    </div>
+  </div>
   <br />
   <button type="submit" class="btn btn-primary">Login</button>
 </form>

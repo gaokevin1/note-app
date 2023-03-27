@@ -1,0 +1,4 @@
+flask==2.1.0
+werkzeug==2.1.1
+flask-login==0.5.0
+descope=1.0.0
